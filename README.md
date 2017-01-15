@@ -20,15 +20,15 @@ bd_server.py : Python Example of FTDI UART for Mesa Bus access.
 
 ico_gpio.py : Python example of Pi SPI for Mesa Bus access.
 
-hlist.txt : ChipVault hierarchy file for SUMP2 on Icoboard
+hlist.txt : ChipVault hierarchy file for Verilog files for SUMP2 on Icoboard.
 
-top.v  : Top level FPGA for SUMP2 on IcoBoard. Uses SPI for Mesa Bus
+top.v  : Top level FPGA for SUMP2 on IcoBoard. Uses SPI for Mesa Bus.
 
 mesa2ctrl.v : Decodes the 0xF subslot controls.
 
 mesa2lb.v : Decodes subslot-0 bus cycles to 32bit Local Bus ( virtual PCI ).
 
-mesa_ascii2nibble.v : Used by UART designs, converts ASCII hex to binary nibbles
+mesa_ascii2nibble.v : Used by UART designs, converts ASCII hex to binary nibbles.
 
 mesa_byte2ascii.v : Used by UART designs, converts binary bytes to ASCII nibble pairs.
 
