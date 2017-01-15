@@ -1,0 +1,267 @@
+                          Specification for
+                                MesaBus 
+        Interconnection Architecture for Computers, Microcontrollers, FPGAs
+              Revision: DRAFT 0.01 02.20.2016 by Black Mesa Labs
+
+###############################################################################
+
+[ Legal Notices and Disclaimers ]
+ Copyright Notice : Notice is hereby given that this document is not 
+ copyrighted, and has been placed into the public domain. 
+ It may be freely copied and distributed by any means.
+
+
+[ Disclaimers ]
+ The Author has strove to be as accurate and complete as possible in the 
+ creation of this document, notwithstanding the fact that he does not warrant 
+ or represent at any time that the contents within are accurate due to the 
+ rapidly changing nature of information.  The Author will not be responsible 
+ for any losses or damages of any kind incurred by the reader whether directly
+ or indirectly arising from the use of the information found in this document.
+
+ This document is not intended for use as a source of legal, business,  
+ accounting, financial, or medical advice. All readers are advised to seek 
+ services of competent professionals in the legal, business, accounting, 
+ finance, and medical fields. 
+
+ No guarantees of any kind are made. Reader assumes responsibility for use of 
+ the information contained herein. The Author reserves the right to make 
+ changes without notice. The Author assumes no responsibility or liability 
+ whatsoever on the behalf of the reader of this document.
+
+ In no event shall the Author be liable for any direct, indirect, incidental, 
+ consequential, exemplary, or special damages (including, but not limited to
+ procurement of substitute goods or services; loss of use, data, or profits; 
+ or business interruption) resulting in any way from the use of this 
+ specification. By adopting this specification, the user assumes all 
+ responsibility for its use.
+
+###############################################################################
+
+[ Introduction ]
+ MesaBus is a scalable chip to chip protocol that expands a single serial
+ interface of any microcontroller, computer or FPGA to a full bus with 
+ up to 250 self enumerating nodes.  The purpose of MesaBus is to allow simple 
+ low cost Internet-of-Thing type microcontrollers and FPGAs with very few pins 
+ to be able to easily interface to many device peripherals with minimum wires .
+ MesaBus is scalable from simple UART connections to high performance SERDES
+ chip to chip communications between FPGAs approaching PCI performance.
+ MesaBus readily scales from 115 Kbps over bluetooth wireless to 
+ 1 GByte/sec between high performance FPGAs over a low cost USB cable.
+
+ - Motivation
+ The MesaBus architect was strongly influenced by these factors: 
+ 1) The MakerCommunity does not have access to low level computer interfaces 
+    that existed in the 1980s era of RS232 and Parallel Printer Ports. USB 
+    device drivers are so difficult that USB access to a modern computer is 
+    essentially an FTDI cable that looks like a legacy RS232 port to software.
+ 2) Microcontroller community has no "Bus" standard for interfacing multiple 
+    peripherals other than SPI and I2C.
+ 3) USB and PCIe are fantastic for consumers, but too complicated for use in
+    interfacing microcontrollers to custom peripherals.
+ 4) IC's that can be purchased and hand soldered on to low cost 2-layer PCBs
+    designs are limited in pin count and need a minimal wire bus that isn't I2C.
+ 5) Interconnecting FPGAs with each other and peripherals usually involve 
+    one-off custom interfaces to reach simplicity and performance.
+ 6) Byte transfer interfaces such as SPI, I2C and SERDES are reusable across
+    many different applications but do not scale and require many pins.
+  
+[ Performance ]
+ MesaBus protocol is a streaming byte protocol bus for transferring packets 
+ of payload bytes from a single bus MASTER to multiple bus SLAVEs.
+ The default protocol MODE_UART is to transfer ASCII hex nibbles "0"-"F" over 
+ an industry standard N81 UART connection to build up a stream of binary bytes 
+ internal to each SLAVE chip.  Using this ASCII based interface increases
+ compatibility with operating systems, scripting languages and wireless 
+ communication modules that otherwise may have difficulties transferring binary
+ data. The MODE_SYNC protocol uses the same byte streams but with a source 
+ synchronous binary interface such as SPI or I2C.  MODE_SERDES protocol uses 
+ 8b10b SERDES to transfer the same byte streams over a 3+ Gbps SERDES link.
+ These three modes allow MesaBus compliant designs to easily trade off between 
+ compatibility and performance as it readily scales from KBytes/sec between 
+ wireless Bluetooth microcontrollers to 40 MBytes/Sec between simple FPGAs to
+ 1 GBytes/Sec between advanced FPGAs over a low cost USB cable.
+ 
+ Connection Types: 
+ o 1-Bit LVCMOS MODE_UART   : Payload rate is   1/2 physical baud rate. 
+ o 1-Bit LVCMOS MODE_SYNC   : Payload rate is    1x physical bit rate. 
+ o 1-Bit LVDS   MODE_SYNC   : Payload rate is    1x physical bit rate. 
+ o 1-Bit SERDES MODE_SERDES : Payload rate is  8/10 physical bit rate. 
+
+ Examples:                    Electrical  Payload
+ o 1-Bit LVCMOS MODE_UART   : 921kbps   = 460kbps or  50 KBytes/s.
+ o 1-Bit LVCMOS MODE_SYNC   : 40Mbps    = 40Mbps  or   5 MBytes/s.
+ o 1-Bit LVDS   MODE_SYNC   : 320Mbps   = 320Mbps or  40 MBytes/s.
+ o 1-Bit SERDES MODE_SERDES : 10 Gbps   =   8Gbps or   1 GBytes/s.
+
+[ Physical Interface ]
+ o Electrical Signal Levels : The physical interface is point to point with 
+   devices interfacing nominally using 3.3V LVCMOS. High performance devices 
+   may optionally use differential LVDS in place of single ended LVCMOS for 
+   faster performance and/or long cable runs.
+ o Power : MesaBus MASTERs are able to provide +5V DC power to SLAVE devices.
+   Current limit of +5V is design dependent with 500mA a nominal target.
+ o Data Direction :
+    Wi : Originates from MASTER and propagates down bus chain to furthest 
+           slave node. Carries either asynchronous UART single bit traffic or
+           1 or 4 bits of synchronous traffic clocked by Woc clock.
+           Idles at logic-1.
+    Wo : Output copy of Wi to next slave downstream.
+    Ro : Originates from SLAVE devices and propagates back up to MASTER.
+           Carries either asynchronous UART readback data or interrupt.
+           Idles at logic-1.
+    Ri : Input version of Ro from downstream slave device.
+  o Pullups : Pullups exist on all LVCMOS signals to 3.3V.
+
+ o Mechanical Connection : Mechanical connections are recommendations only. 
+  o Standard LVCMOS Form Factor is FTDI TTL-232R-3V3 USB to TTL cable pinout. 
+  - LVCMOS 1-Bit : 1x6 0.100" Pitch 0.040" vias with the following pinout:
+    Pin-1 : Ground    ( GND  ) Black
+    Pin-2 : Wo        ( CTS# ) Brown   Roc clock for MODE_SYNC
+    Pin-3 : +5V Power ( VCC  ) Red     900mA Max
+    Pin-4 : Wi        ( TXD  ) Orange
+    Pin-5 : Ro        ( RXD  ) Yellow
+    Pin-6 : Ri        ( RTS# ) Green   Wic clock for MODE_SYNC
+
+   
+  - LVDS : USB 3.1 Type-C Male to Male cables repurposed for LVDS and Power
+    GND         : Ground
+    VCC         : +5V @ 3A Max
+    StdA_SSTX+- : Wi    Diff Pair ( MODE_UART or MODE_SYNC )
+    StdA_SSRX+- : Wic   Diff Pair 
+    D+-         : Ro    Diff Pair ( MODE_UART )
+
+  - SERDES : USB 3.1 Type-C Male to Male cables repurposed for SERDES and Power
+    GND         : Ground
+    VCC         : +5V @ 3A Max
+    StdA_SSTX+- : Wi    Diff Pair ( 3-10 Gbps 8b10b )
+    StdA_SSRX+- : Ro    Diff Pair ( 3-10 Gbps 8b10b )
+    D+-         : Not Used
+
+ o Powerup and Wo LVCMOS TriState operation:
+    Wo is normally an active driven signal that parks at '1'. To prevent 
+    Wo from potentially powering downstream CMOS devices, it is Tristated 
+    with weak pullup on powerup and is not actively driven until the bus 
+    segment is activated.
+
+[ MODEs ]
+ o Modes : MesaBus supports MODE_UART, MODE_SYNC and MODE_SERDES.
+ - MODE_UART : Wi and Ri are asynchronously sampled using local 
+   >20 MHz oscillator on each slave device using UART N81 protocol. 
+   Maximum baud rate is TBD   10 Mbps.
+   Minimum baud rate is TBD 9600 bps.
+ - MODE_SYNC : Wi and Ri are synchronously sampled using source 
+   synchronous Wic and Ric clocks. Clocks are nominally 24 MHz for LVCMOS
+   and 320 MHz for LVDS interfaces. Bus sits idle at '1'. Leading 0xF0 header
+   provides framing reference for Byte within stream of Bits. Byte within bits
+   alignment remains for duration of packet.
+ - MODE_SERDES : 8b10b encoded clock and data at 3 to 10 Gbps. Bus is idle
+   sending nulls of 0xFF.
+ o Detection : The local 40 MHz clock is used to detect the presents of Wic  
+   and Ric. MODE_UART is automatically used if these clocks are parked. 
+   Devices capable of MODE_SYNC automatically switch from MODE_UART to 
+   MODE_SYNC when Wic is detected as toggling.
+
+[ Signal Description ]
+ o Wi  : Input  signal to   SLAVE from upstream   MASTER or SLAVE.
+ o Wo  : Output signal from SLAVE to   downstream SLAVE.
+ o Ro  : Output signal from SLAVE to   upstream   MASTER or SLAVE.
+ o Ri  : Input  signal to   MASTER or SLAVE from downstream SLAVE.
+
+
+[ Topology ]
+ -- MODE_UART
+             MASTER                SLAVE                   SLAVE
+        ---------------      ------------------      ----------------- 
+       |            Wo |--->| Wi            Wo |--->| Wi           Wo |--> NC
+       |            Ri |<---| Ro            Ri |<---| Ro           Ri |<-- NC
+        ---------------      ------------------      ----------------- 
+
+ -- MODE_SYNC 
+             MASTER                SLAVE                   SLAVE
+        ---------------      ------------------      ----------------- 
+       |            Wo |--->| Wi            Wo |--->| Wi           Wo |--> NC
+       |            Wco|--->| Wci          Wco |--->| Wci         Wco |--> NC
+       |            Ri |<---| Ro            Ri |<---| Ro           Ri |<-- NC
+       |            Rci|<---| Rco          Rci |<---| Rco         Rci |<-- NC
+        ---------------      ------------------      ----------------- 
+
+ -- MODE_SERDES
+             MASTER                SLAVE                   SLAVE
+        ---------------      ------------------      ----------------- 
+       |            Wo |--->| Wi            Wo |--->| Wi           Wo |--> NC
+       |            Ri |<---| Ro            Ri |<---| Ro           Ri |<-- NC
+        ---------------      ------------------      ----------------- 
+
+[ Protocol ]
+ o Idle Bus : Optional for MODE_UART, required for MODE_SYNC if clocking.
+              The Packet_Header may optionally be preceded by 1 or more "F"s to
+              ensure nibble within byte alignment is maintained while in 
+              MODE_UART. Packet processing only begins when an "F0" is 
+              received on a byte wide lane, or a "0" on a nibble wide lane.
+              To guarantee packet alignment, the bus master may always send
+              a string of 260 0xFFs bytes.
+     0xFF
+ o Invalid Characters : In MODE_UART, ASCII characters outside of "a-f","A-F"
+                        and "0-9" are considered invalid and ignored. Any 
+                        invalid character >= 0x20 will result in the lock on
+                        Autobaud being turned off. The "\n" LF character is
+                        an exception to this rule and is used initially for
+                        autobauding and ignored after baud lock.
+ o Bit and Byte Ordering
+   Bit ordering for MODE_UART is normal Start Bit, D0 LSB, D1,..D7,Stop Bit.
+   Bit ordering for MODE_SYNC is MSB D7 first and LSB D0 last.
+   Byte ordering for DWORD transfers is D(31:24) 1st and D(7:0) last.
+   Phase alignments for bit, nibble, byte and DWORD boundaries is established
+   using the 0xF0 packet header preamble. Bus always sits idle with 0xFFs.
+
+ o Packet Header 
+   A packet header consists of a 4-bytes DWORD  always beginning with 0xF0.
+     D(31:24) : 0xF0 : Header Preamble 
+     D(23:16) : 0x00-0xFD : Destination Slot for this packet
+                0xFF : Broadcast all slots
+                0xFE : Nobody ( or Master on Ro Readback packets )
+     D(15:8)  : Sub-Slot and Command
+                D(15:12) : Sub-Slot 0x0-0xF within Chip.
+                D(11:8)  : Sub-Slot Command 0x0-0xF
+     D(7:0)   : 0-255 : Number of payload bytes included in this packet.
+
+ o Sub-Slot 0x0 : 32bit Local Bus Transport
+   Sub-Slot 0x0 is by default used for transferring 32bit local bus address
+   and data cycles. <ADDR> is 32bits specific to each chip. For writes, one 
+   or more DWORDs of data may be written. For reads, <LENGTH> specifies the 
+   number of DWORDs to read starting at <ADDR>. For multiple DWORD transfers,
+   the <ADDR> is internally auto incremented by +4 for each DWORD.
+   Command
+    0x0 : Write Cycle : Payload of <ADDR><DATA>...
+    0x1 : Read  Cycle : Payload of <ADDR><Length> 
+    0x2 : Write Repeat : Write burst data to single address : <ADDR><DATA>...
+    0x3 : Read  Repeat : Read burst data from single address : <ADDR><Length> 
+
+ o Sub-Slot 0xF : Mesa Bus Control
+   Sub-Slot 0xF is reserved for low level control of the Mesa Bus pins.
+   Command
+   0x0 : Ro pin is assigned to MesaBus Ro function. ( DEFAULT )
+   0x1 : Ro pin is assigned to Wi pin as a loopback.
+   0x2 : Ro pin is assigned to MesaBus Interrupt function.
+   0x3 : Ro pin is assigned to user specific function.
+   0x4 : Wo pin is assigned to MesaBus Wo function. ( DEFAULT )
+   0x5 : Wo pin is assigned to loopback Wi pin.
+   0x6 : Wo pin is assigned to MesaBus Interrupt function.
+   0x7 : Wo pin is assigned to user specific function.
+   0x8 : Ri pin is assigned to MesaBus Ri function. ( DEFAULT )
+   0x9 : Ri pin is assigned to user specific function.
+   0xA : Report device id
+   0xB : Reset device
+   0xC : Reset autobaud circuit
+   0xD : Turn off fast clocks ( Power Save Mode )
+   0xE : Reboot FPGA to Slot 1of2
+   0xF : Reboot FPGA to Slot 2of2
+
+[ Addressing ]
+ Addressing is an 8bit field that is decremented at each node. Closest node
+ to Master is 0x00, next in line is 0x01, etc. 0xFF is reserved for broadcast
+ to all nodes. 
+ 
+
+[EOF]
