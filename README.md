@@ -18,11 +18,13 @@ mesa_bus3.txt : Detailed description of the protocol and how used.
   
 bd_server.py : Python Example of FTDI UART for Mesa Bus access.
 
+bd_server.ini : Example config file for bd_server.py.
+
 ico_gpio.py : Python example of Pi SPI for Mesa Bus access.
 
-hlist.txt : ChipVault hierarchy file for Verilog files for SUMP2 on Icoboard.
+hlist.txt : ChipVault hierarchy file for Verilog files.
 
-top.v  : Top level FPGA for SUMP2 on IcoBoard. Uses SPI for Mesa Bus.
+top.v  : Top level FPGA for MesaBus on Digilent BASYS3 Artix7 board. 
 
 mesa2ctrl.v : Decodes the 0xF subslot controls.
 

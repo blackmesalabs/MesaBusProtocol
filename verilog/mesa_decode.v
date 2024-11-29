@@ -12,13 +12,6 @@
 --              nibble or byte wide streams. 
 --              This block decodes packets and routes them to both
 --              dowstream slots and the internal sub-slots for this slot.
--- License:     This project is licensed with the CERN Open Hardware Licence
---              v1.2.  You may redistribute and modify this project under the
---              terms of the CERN OHL v.1.2. (http://ohwr.org/cernohl).
---              This project is distributed WITHOUT ANY EXPRESS OR IMPLIED
---              WARRANTY, INCLUDING OF MERCHANTABILITY, SATISFACTORY QUALITY
---              AND FITNESS FOR A PARTICULAR PURPOSE. Please see the CERN OHL
---              v.1.2 for applicable Conditions.
 --
 -- Example:
 --    .."FF".."FF"."F0123401[56]" : 
@@ -75,6 +68,8 @@
 -- Ver#  When      Who      What
 -- ----  --------  -------- ---------------------------------------------------
 -- 0.1   10.04.15  khubbard Creation
+-- 0.2   07.16.15  khubbard rx_in_flush added.
+-- 0.3   10.21.17  khubbard USB3 fix to support nibbles coming in every clock
 -- ***************************************************************************/
 //`default_nettype none // Strictly enforce all nets to be declared
                                                                                 
@@ -82,10 +77,9 @@ module mesa_decode
 (
   input  wire         clk,
   input  wire         reset,
+  input  wire         rx_in_flush,
   input  wire [3:0]   rx_in_d,
   input  wire         rx_in_rdy,
-  input  wire [3:0]   pi_mosi_d,
-  input  wire         pi_mosi_rdy,
   output wire [7:0]   rx_out_d,
   output wire         rx_out_rdy,
   output wire [7:0]   rx_loc_d,
@@ -133,19 +127,12 @@ module mesa_decode
 // currently in a packet determines the phasing for byte within nibble stream.
 //-----------------------------------------------------------------------------
 always @ ( posedge clk ) begin : proc_nib_in 
- rx_in_rdy_p1  <= rx_in_rdy | pi_mosi_rdy;
+ rx_in_rdy_p1  <= rx_in_rdy;
  if ( rx_in_rdy == 1 ) begin
    byte_sr[7:4]  <= byte_sr[3:0];
    byte_sr[3:0]  <= rx_in_d[3:0];
    byte_pingpong <= ~ byte_pingpong;
  end
-
- if ( pi_mosi_rdy == 1 ) begin
-   byte_sr[7:4]  <= byte_sr[3:0];
-   byte_sr[3:0]  <= pi_mosi_d[3:0];
-   byte_pingpong <= ~ byte_pingpong;
- end
-
  if ( packet_jk == 0 ) begin
    byte_pingpong <= 0;
  end
@@ -163,17 +150,18 @@ always @ ( posedge clk ) begin : proc_byte_in
  byte_rdy     <= 0;
  packet_jk_p1 <= packet_jk;
 
- if ( rx_in_rdy_p1 == 1 ) begin
-   if ( byte_sr == 8'hF0 && packet_jk == 0 ) begin
+ // 2017.10.21 Fix to support nibbles coming in every clock cycle
+ if ( rx_in_rdy == 1 ) begin
+   if ( rx_in_d[3:0] == 4'h0 && byte_sr[3:0] == 4'hF && packet_jk == 0 ) begin
      packet_jk <= 1;
      byte_rdy  <= 1;
    end
-   if ( packet_jk == 1 && byte_pingpong == 0 ) begin
+   if ( packet_jk == 1 && byte_pingpong == 1 ) begin
      byte_rdy <= 1;
    end
  end
 
- if ( reset == 1 || packet_done == 1 ) begin
+ if ( reset == 1 || packet_done == 1 || rx_in_flush == 1 ) begin
    packet_jk <= 0;
  end
 end // proc_byte_in
